@@ -33,6 +33,20 @@ export default function ResumePage() {
   const [atsResult, setAtsResult] = useState<AtsScoreResumeOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  const [sectionOrder, setSectionOrder] = useState<string[]>([
+    'personal-info',
+    'summary',
+    'skills',
+    'education',
+    'experience',
+    'projects',
+    'certifications',
+    'awards',
+    'volunteer',
+    'languages',
+    'ats-score'
+  ]);
  
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -141,9 +155,11 @@ export default function ResumePage() {
             handleScore={handleScoreFromBuilder}
             isLoading={isLoading}
             atsResult={atsResult}
+            sectionOrder={sectionOrder}
+            setSectionOrder={setSectionOrder}
           />
           <div className="lg:sticky lg:top-8">
-              <ResumePreview resumeData={resumeData} />
+              <ResumePreview resumeData={resumeData} sectionOrder={sectionOrder} />
           </div>
         </div>
       </div>
