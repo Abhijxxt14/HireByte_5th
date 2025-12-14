@@ -92,7 +92,7 @@ HireByte/
 
 ```bash
 # Clone the repository
-git clone https://github.com/Abhijxxt14/HireByte.git
+git clone https://github.com/Jeeban-2006/HireByte2.git
 cd HireByte
 
 # Install dependencies
