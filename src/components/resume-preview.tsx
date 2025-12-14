@@ -514,7 +514,7 @@ const scrollToTop = () => {
 
     <div className="p-4 border-t no-print flex gap-2">
       <div className="flex-1">
-        <ResumeDownloadButton resumeData={resumeData} />
+        <ResumeDownloadButton resumeData={resumeData} sectionOrder={sectionOrder} />
       </div>
     </div>
 

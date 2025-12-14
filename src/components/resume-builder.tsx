@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AtsScoreDisplay } from "@/components/ats-score-display";
 import { Bot, BrainCircuit, Loader2, PlusCircle, Trash2, User, GraduationCap, Briefcase, Wrench, Mic, FolderKanban, Award, Languages, Handshake, Ribbon } from "lucide-react";
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { AtsScoreResumeOutput } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { DraggableResumeBuilder, DraggableResumeSection } from "@/components/draggable-resume-builder";
 
 const SpeechRecognition =
   (typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition));
@@ -26,6 +27,8 @@ interface ResumeBuilderProps {
   handleScore: () => void;
   isLoading: boolean;
   atsResult: AtsScoreResumeOutput | null;
+  sectionOrder?: string[];
+  setSectionOrder?: (order: string[]) => void;
 }
 /*
 Order for the resume sections:
@@ -61,6 +64,8 @@ export function ResumeBuilder({
   handleScore,
   isLoading,
   atsResult,
+  sectionOrder,
+  setSectionOrder,
 }: ResumeBuilderProps) {
   const { toast } = useToast();
   const [isListening, setIsListening] = useState<string | null>(null);
@@ -463,6 +468,290 @@ export function ResumeBuilder({
     setResumeData({ ...resumeData, languages: newLang });
   };
 
+  // Default section order if not provided
+  const defaultSectionOrder = [
+    'personal-info',
+    'summary',
+    'skills',
+    'education',
+    'experience',
+    'projects',
+    'certifications',
+    'awards',
+    'volunteer',
+    'languages',
+    'ats-score'
+  ];
+
+  const currentSectionOrder = sectionOrder || defaultSectionOrder;
+
+  // Handle section reorder
+  const handleSectionsReorder = useCallback((newSections: DraggableResumeSection[]) => {
+    const newOrder = newSections.map(s => s.type);
+    if (setSectionOrder) {
+      setSectionOrder(newOrder);
+    }
+    // Also update the resume data
+    setResumeData({ ...resumeData, sectionOrder: newOrder });
+  }, [setSectionOrder, setResumeData, resumeData]);
+
+  // Create section components mapping
+  const sectionComponents: Record<string, React.ReactNode> = useMemo(() => ({
+    'personal-info': (
+      <AccordionItem value="personal-info" key="personal-info">
+        <AccordionTrigger className="text-lg font-semibold"><User className="mr-3 h-5 w-5 text-primary accordion-icon"/>Personal Information</AccordionTrigger>
+        <AccordionContent className="space-y-4 pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><Label htmlFor="name">Full Name</Label><Input id="name" value={resumeData.personalInfo.name} onChange={(e) => handlePersonalInfoChange("name", e.target.value)} /></div>
+            <div><Label htmlFor="email">Email</Label><Input id="email" type="email" value={resumeData.personalInfo.email} onChange={(e) => handlePersonalInfoChange("email", e.target.value)} /></div>
+            <div><Label htmlFor="phone">Phone</Label><Input id="phone" value={resumeData.personalInfo.phone} onChange={(e) => handlePersonalInfoChange("phone", e.target.value)} /></div>
+            <div><Label htmlFor="address">Address</Label><Input id="address" value={resumeData.personalInfo.address} onChange={(e) => handlePersonalInfoChange("address", e.target.value)} /></div>
+            <div><Label htmlFor="linkedin">LinkedIn Profile</Label><Input id="linkedin" value={resumeData.personalInfo.linkedin} onChange={(e) => handlePersonalInfoChange("linkedin", e.target.value)} placeholder="https://linkedin.com/in/yourusername" /></div>
+            <div><Label htmlFor="github">GitHub Profile</Label><Input id="github" value={resumeData.personalInfo.github || ""} onChange={(e) => handlePersonalInfoChange("github", e.target.value)} placeholder="https://github.com/yourusername" /></div>
+            <div><Label htmlFor="portfolio">Portfolio/Website</Label><Input id="portfolio" value={resumeData.personalInfo.portfolio} onChange={(e) => handlePersonalInfoChange("portfolio", e.target.value)} placeholder="https://yourwebsite.com" /></div>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    ),
+    'summary': (
+      <AccordionItem value="summary" key="summary">
+        <AccordionTrigger className="text-lg font-semibold"><Briefcase className="mr-3 h-5 w-5 text-primary accordion-icon"/>Professional Summary</AccordionTrigger>
+        <AccordionContent className="space-y-2 pt-2">
+            <div className="relative">
+                <Label htmlFor="summary">Summary</Label>
+                <Textarea id="summary" value={resumeData.summary} onChange={(e) => handleSummaryChange(e.target.value)} placeholder="Write a brief professional summary..." rows={4} className="pr-10"/>
+                <div className="absolute bottom-1.5 right-1.5 flex flex-col gap-1">
+                    {SpeechRecognition && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening('summary')}>
+                            {isListening === 'summary' ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
+                        </Button>
+                    )}
+                </div>
+            </div>
+        </AccordionContent>
+      </AccordionItem>
+    ),
+    'skills': (
+      <AccordionItem value="skills" key="skills">
+        <AccordionTrigger className="text-lg font-semibold"><Wrench className="mr-3 h-5 w-5 text-primary accordion-icon"/>Skills</AccordionTrigger>
+        <AccordionContent className="pt-2">
+            <div className="relative">
+                <Label htmlFor="skills">Skills (comma-separated)</Label>
+                <Textarea 
+                  id="skills" 
+                  value={skillsInputValue} 
+                  onChange={(e) => handleSkillsChange(e.target.value)}
+                  onBlur={(e) => handleSkillsBlur(e.target.value)}
+                  onKeyDown={handleSkillsKeyDown}
+                  className="pr-10"
+                  placeholder="e.g., JavaScript, React, Node.js, Python"
+                />
+                 <div className="absolute bottom-1.5 right-1.5 flex flex-col gap-1">
+                    {SpeechRecognition && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening('skills')}>
+                            {isListening === 'skills' ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
+                        </Button>
+                    )}
+                </div>
+            </div>
+        </AccordionContent>
+      </AccordionItem>
+    ),
+    'education': (
+      <AccordionItem value="education" key="education">
+        <AccordionTrigger className="text-lg font-semibold"><GraduationCap className="mr-3 h-5 w-5 text-primary accordion-icon"/>Education</AccordionTrigger>
+        <AccordionContent className="space-y-4 pt-2">
+          {resumeData.education?.map((edu, index) => (
+            <div key={edu.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><Label>School/University</Label><Input value={edu.school} onChange={(e) => handleEducationChange(index, "school", e.target.value)} /></div>
+                <div><Label>Degree & Major</Label><Input value={edu.degree} onChange={(e) => handleEducationChange(index, "degree", e.target.value)} /></div>
+                <div><Label>Location</Label><Input value={edu.location} onChange={(e) => handleEducationChange(index, "location", e.target.value)} /></div>
+                <div><Label>Graduation Date</Label><Input value={edu.graduationDate} onChange={(e) => handleEducationChange(index, "graduationDate", e.target.value)} /></div>
+                <div><Label>CGPA/Percentage</Label><Input value={edu.grade || ""} onChange={(e) => handleEducationChange(index, "grade", e.target.value)} placeholder="e.g., 3.8/4.0 or 85%" /></div>
+              </div>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeEducation(index)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}
+          <Button variant="outline" onClick={addEducation} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Education</Button>
+        </AccordionContent>
+      </AccordionItem>
+    ),
+    'experience': (
+      <AccordionItem value="experience" key="experience">
+        <AccordionTrigger className="text-lg font-semibold"><Briefcase className="mr-3 h-5 w-5 text-primary accordion-icon"/>Work Experience</AccordionTrigger>
+        <AccordionContent className="space-y-4 pt-2">
+          {resumeData.experience?.map((exp, index) => (
+            <div key={exp.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><Label>Job Title</Label><Input value={exp.jobTitle} onChange={(e) => handleExperienceChange(index, "jobTitle", e.target.value)} /></div>
+                <div><Label>Company</Label><Input value={exp.company} onChange={(e) => handleExperienceChange(index, "company", e.target.value)} /></div>
+                <div><Label>Location</Label><Input value={exp.location} onChange={(e) => handleExperienceChange(index, "location", e.target.value)} /></div>
+                <div><Label>Start Date</Label><Input value={exp.startDate} onChange={(e) => handleExperienceChange(index, "startDate", e.target.value)} /></div>
+                <div><Label>End Date</Label><Input value={exp.endDate} onChange={(e) => handleExperienceChange(index, "endDate", e.target.value)} /></div>
+              </div>
+              <div className="relative">
+                <Label>Description</Label>
+                <Textarea value={exp.description} onChange={(e) => handleExperienceChange(index, "description", e.target.value)} rows={3} placeholder="- Key achievement 1..." className="pr-10"/>
+                 <div className="absolute bottom-1.5 right-1.5 flex flex-col gap-1">
+                    {SpeechRecognition && (
+                         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening(`experience-${index}`)}>
+                            {isListening === `experience-${index}` ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
+                        </Button>
+                    )}
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeExperience(index)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}
+          <Button variant="outline" onClick={addExperience} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Experience</Button>
+        </AccordionContent>
+      </AccordionItem>
+    ),
+    'projects': (
+      <AccordionItem value="projects" key="projects">
+        <AccordionTrigger className="text-lg font-semibold"><FolderKanban className="mr-3 h-5 w-5 text-primary accordion-icon"/>Projects (optional)</AccordionTrigger>
+        <AccordionContent className="space-y-4 pt-2">
+          {resumeData.projects?.map((proj, index) => (
+            <div key={proj.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
+              <div><Label>Project Name</Label><Input value={proj.name} onChange={(e) => handleProjectChange(index, "name", e.target.value)} /></div>
+              <div className="relative">
+                <Label>Description</Label>
+                <Textarea value={proj.description} onChange={(e) => handleProjectChange(index, "description", e.target.value)} rows={3} placeholder="Describe your project..." className="pr-10" />
+                <div className="absolute bottom-1.5 right-1.5 flex flex-col gap-1">
+                    {SpeechRecognition && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening(`project-${index}`)}>
+                            {isListening === `project-${index}` ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
+                        </Button>
+                    )}
+                </div>
+              </div>
+              <div><Label>Demo Link</Label><Input value={proj.link} onChange={(e) => handleProjectChange(index, "link", e.target.value)} /></div>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeProject(index)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}
+          <Button variant="outline" onClick={addProject} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Project</Button>
+        </AccordionContent>
+      </AccordionItem>
+    ),
+    'certifications': (
+      <AccordionItem value="certifications" key="certifications">
+        <AccordionTrigger className="text-lg font-semibold"><Ribbon className="mr-3 h-5 w-5 text-primary accordion-icon"/>Certifications & Training (optional)</AccordionTrigger>
+        <AccordionContent className="space-y-4 pt-2">
+          {resumeData.certifications?.map((cert, index) => (
+            <div key={cert.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><Label>Certification Name</Label><Input value={cert.name} onChange={(e) => handleCertificationChange(index, "name", e.target.value)} /></div>
+                <div><Label>Issuing Authority</Label><Input value={cert.authority} onChange={(e) => handleCertificationChange(index, "authority", e.target.value)} /></div>
+                <div><Label>Date Earned</Label><Input value={cert.date} onChange={(e) => handleCertificationChange(index, "date", e.target.value)} /></div>
+                <div><Label>URL (optional)</Label><Input value={cert.link || ''} onChange={(e) => handleCertificationChange(index, "link", e.target.value)} placeholder="https://example.com/cert" /></div>
+              </div>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeCertification(index)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}
+          <Button variant="outline" onClick={addCertification} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Certification</Button>
+        </AccordionContent>
+      </AccordionItem>
+    ),
+    'awards': (
+      <AccordionItem value="awards" key="awards">
+        <AccordionTrigger className="text-lg font-semibold"><Award className="mr-3 h-5 w-5 text-primary accordion-icon"/>Awards & Achievements (optional)</AccordionTrigger>
+        <AccordionContent className="space-y-4 pt-2">
+          {resumeData.awards?.map((award, index) => (
+            <div key={award.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-1"><Label>Award/Achievement</Label><Input value={award.name} onChange={(e) => handleAwardChange(index, "name", e.target.value)} /></div>
+                <div className="md:col-span-1"><Label>URL (optional)</Label><Input value={award.link || ''} onChange={(e) => handleAwardChange(index, "link", e.target.value)} placeholder="https://example.com/award" /></div>
+              </div>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeAward(index)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}
+          <Button variant="outline" onClick={addAward} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Award</Button>
+        </AccordionContent>
+      </AccordionItem>
+    ),
+    'volunteer': (
+      <AccordionItem value="volunteer" key="volunteer">
+        <AccordionTrigger className="text-lg font-semibold"><Handshake className="mr-3 h-5 w-5 text-primary accordion-icon"/>Volunteer Experience (optional)</AccordionTrigger>
+        <AccordionContent className="space-y-4 pt-2">
+          {resumeData.volunteerExperience?.map((vol, index) => (
+            <div key={vol.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><Label>Role</Label><Input value={vol.role} onChange={(e) => handleVolunteerChange(index, "role", e.target.value)} /></div>
+                <div><Label>Organization</Label><Input value={vol.organization} onChange={(e) => handleVolunteerChange(index, "organization", e.target.value)} /></div>
+                 <div><Label>Dates</Label><Input value={vol.dates} onChange={(e) => handleVolunteerChange(index, "dates", e.target.value)} /></div>
+              </div>
+              <div className="relative">
+                <Label>Description</Label>
+                <Textarea value={vol.description} onChange={(e) => handleVolunteerChange(index, "description", e.target.value)} rows={3} placeholder="Skills demonstrated or impact created..." className="pr-10" />
+                <div className="absolute bottom-1.5 right-1.5 flex flex-col gap-1">
+                    {SpeechRecognition && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening(`volunteer-${index}`)}>
+                            {isListening === `volunteer-${index}` ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
+                        </Button>
+                    )}
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeVolunteer(index)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}
+          <Button variant="outline" onClick={addVolunteer} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Volunteer Role</Button>
+        </AccordionContent>
+      </AccordionItem>
+    ),
+    'languages': (
+      <AccordionItem value="languages" key="languages">
+        <AccordionTrigger className="text-lg font-semibold"><Languages className="mr-3 h-5 w-5 text-primary accordion-icon"/>Languages (optional)</AccordionTrigger>
+        <AccordionContent className="space-y-4 pt-2">
+          {resumeData.languages?.map((lang, index) => (
+            <div key={lang.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><Label>Language</Label><Input value={lang.name} onChange={(e) => handleLanguageChange(index, "name", e.target.value)} /></div>
+                <div><Label>Proficiency</Label><Input value={lang.proficiency} onChange={(e) => handleLanguageChange(index, "proficiency", e.target.value)} /></div>
+              </div>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeLanguage(index)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}
+          <Button variant="outline" onClick={addLanguage} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Language</Button>
+        </AccordionContent>
+      </AccordionItem>
+    ),
+    'ats-score': (
+      <AccordionItem value="ats-score" key="ats-score">
+        <AccordionTrigger className="text-lg font-semibold"><BrainCircuit className="mr-3 h-5 w-5 text-primary accordion-icon"/>ATS Score Analysis</AccordionTrigger>
+        <AccordionContent className="space-y-4 pt-2">
+          <div className="relative">
+            <Label htmlFor="job-description">Job Description</Label>
+            <Textarea id="job-description" value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} placeholder="Paste the job description here..." rows={6} className="pr-10"/>
+             {SpeechRecognition && (
+                <Button variant="ghost" size="icon" className="absolute bottom-2 right-2 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening('jobDescription')}>
+                    {isListening === 'jobDescription' ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
+                </Button>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={handleScore} disabled={isLoading || !jobDescription} className="w-full bg-[hsl(var(--accent))] text-accent-foreground hover:bg-[hsl(var(--accent)/0.9)] transition-transform hover:scale-105 active:scale-100">
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isLoading ? "Analyzing..." : "Analyze and Score Built Resume"}
+            </Button>
+          </div>
+
+          {isLoading && <p className="text-center text-sm text-muted-foreground">Analyzing your resume. This may take a moment...</p>}
+          {atsResult && <AtsScoreDisplay result={atsResult} />}
+        </AccordionContent>
+      </AccordionItem>
+    ),
+  }), [resumeData, skillsInputValue, jobDescription, isListening, isLoading, atsResult, SpeechRecognition]);
+
+  // Create draggable sections based on current order
+  const draggableSections: DraggableResumeSection[] = useMemo(() => {
+    return currentSectionOrder.map(sectionType => ({
+      id: sectionType,
+      type: sectionType,
+      content: sectionComponents[sectionType] || null,
+    })).filter(section => section.content !== null);
+  }, [currentSectionOrder, sectionComponents]);
+
   return (
     <Card className="shadow-2xl shadow-primary/10 transition-shadow duration-300 hover:shadow-primary/20">
       <CardHeader>
@@ -496,247 +785,16 @@ export function ResumeBuilder({
             </div>
           </div>
         )}
+        <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-muted">
+          <p className="text-sm text-muted-foreground">
+            <strong>Tip:</strong> Drag the sections by their grip icon to reorder them. The preview and PDF will update automatically.
+          </p>
+        </div>
         <Accordion type="single" collapsible defaultValue="personal-info" className="w-full">
-          <AccordionItem value="personal-info">
-            <AccordionTrigger className="text-lg font-semibold"><User className="mr-3 h-5 w-5 text-primary accordion-icon"/>Personal Information</AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><Label htmlFor="name">Full Name</Label><Input id="name" value={resumeData.personalInfo.name} onChange={(e) => handlePersonalInfoChange("name", e.target.value)} /></div>
-                <div><Label htmlFor="email">Email</Label><Input id="email" type="email" value={resumeData.personalInfo.email} onChange={(e) => handlePersonalInfoChange("email", e.target.value)} /></div>
-                <div><Label htmlFor="phone">Phone</Label><Input id="phone" value={resumeData.personalInfo.phone} onChange={(e) => handlePersonalInfoChange("phone", e.target.value)} /></div>
-                <div><Label htmlFor="address">Address</Label><Input id="address" value={resumeData.personalInfo.address} onChange={(e) => handlePersonalInfoChange("address", e.target.value)} /></div>
-                <div><Label htmlFor="linkedin">LinkedIn Profile</Label><Input id="linkedin" value={resumeData.personalInfo.linkedin} onChange={(e) => handlePersonalInfoChange("linkedin", e.target.value)} placeholder="https://linkedin.com/in/yourusername" /></div>
-                <div><Label htmlFor="github">GitHub Profile</Label><Input id="github" value={resumeData.personalInfo.github || ""} onChange={(e) => handlePersonalInfoChange("github", e.target.value)} placeholder="https://github.com/yourusername" /></div>
-                <div><Label htmlFor="portfolio">Portfolio/Website</Label><Input id="portfolio" value={resumeData.personalInfo.portfolio} onChange={(e) => handlePersonalInfoChange("portfolio", e.target.value)} placeholder="https://yourwebsite.com" /></div>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="summary">
-            <AccordionTrigger className="text-lg font-semibold"><Briefcase className="mr-3 h-5 w-5 text-primary accordion-icon"/>Professional Summary</AccordionTrigger>
-            <AccordionContent className="space-y-2 pt-2">
-                <div className="relative">
-                    <Label htmlFor="summary">Summary</Label>
-                    <Textarea id="summary" value={resumeData.summary} onChange={(e) => handleSummaryChange(e.target.value)} placeholder="Write a brief professional summary..." rows={4} className="pr-10"/>
-                    <div className="absolute bottom-1.5 right-1.5 flex flex-col gap-1">
-                        {SpeechRecognition && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening('summary')}>
-                                {isListening === 'summary' ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          
-          <AccordionItem value="skills">
-            <AccordionTrigger className="text-lg font-semibold"><Wrench className="mr-3 h-5 w-5 text-primary accordion-icon"/>Skills</AccordionTrigger>
-            <AccordionContent className="pt-2">
-                <div className="relative">
-                    <Label htmlFor="skills">Skills (comma-separated)</Label>
-                    <Textarea 
-                      id="skills" 
-                      value={skillsInputValue} 
-                      onChange={(e) => handleSkillsChange(e.target.value)}
-                      onBlur={(e) => handleSkillsBlur(e.target.value)}
-                      onKeyDown={handleSkillsKeyDown}
-                      className="pr-10"
-                      placeholder="e.g., JavaScript, React, Node.js, Python"
-                    />
-                     <div className="absolute bottom-1.5 right-1.5 flex flex-col gap-1">
-                        {SpeechRecognition && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening('skills')}>
-                                {isListening === 'skills' ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            </AccordionContent>
-          </AccordionItem>
-          <AccordionItem value="projects">
-            <AccordionTrigger className="text-lg font-semibold"><FolderKanban className="mr-3 h-5 w-5 text-primary accordion-icon"/>Projects (optional)</AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-2">
-              {resumeData.projects?.map((proj, index) => (
-                <div key={proj.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
-                  <div><Label>Project Name</Label><Input value={proj.name} onChange={(e) => handleProjectChange(index, "name", e.target.value)} /></div>
-                  <div className="relative">
-                    <Label>Description</Label>
-                    <Textarea value={proj.description} onChange={(e) => handleProjectChange(index, "description", e.target.value)} rows={3} placeholder="Describe your project..." className="pr-10" />
-                    <div className="absolute bottom-1.5 right-1.5 flex flex-col gap-1">
-                        {SpeechRecognition && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening(`project-${index}`)}>
-                                {isListening === `project-${index}` ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
-                            </Button>
-                        )}
-                    </div>
-                  </div>
-                  <div><Label>Demo Link</Label><Input value={proj.link} onChange={(e) => handleProjectChange(index, "link", e.target.value)} /></div>
-                  <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeProject(index)}><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              ))}
-              <Button variant="outline" onClick={addProject} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Project</Button>
-            </AccordionContent>
-          </AccordionItem>
-
-
-          <AccordionItem value="education">
-            <AccordionTrigger className="text-lg font-semibold"><GraduationCap className="mr-3 h-5 w-5 text-primary accordion-icon"/>Education</AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-2">
-              {resumeData.education?.map((edu, index) => (
-                <div key={edu.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><Label>School/University</Label><Input value={edu.school} onChange={(e) => handleEducationChange(index, "school", e.target.value)} /></div>
-                    <div><Label>Degree & Major</Label><Input value={edu.degree} onChange={(e) => handleEducationChange(index, "degree", e.target.value)} /></div>
-                    <div><Label>Location</Label><Input value={edu.location} onChange={(e) => handleEducationChange(index, "location", e.target.value)} /></div>
-                    <div><Label>Graduation Date</Label><Input value={edu.graduationDate} onChange={(e) => handleEducationChange(index, "graduationDate", e.target.value)} /></div>
-                    <div><Label>CGPA/Percentage</Label><Input value={edu.grade || ""} onChange={(e) => handleEducationChange(index, "grade", e.target.value)} placeholder="e.g., 3.8/4.0 or 85%" /></div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeEducation(index)}><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              ))}
-              <Button variant="outline" onClick={addEducation} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Education</Button>
-            </AccordionContent>
-          </AccordionItem>
-
-
-
-          <AccordionItem value="experience">
-            <AccordionTrigger className="text-lg font-semibold"><Briefcase className="mr-3 h-5 w-5 text-primary accordion-icon"/>Work Experience</AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-2">
-              {resumeData.experience?.map((exp, index) => (
-                <div key={exp.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><Label>Job Title</Label><Input value={exp.jobTitle} onChange={(e) => handleExperienceChange(index, "jobTitle", e.target.value)} /></div>
-                    <div><Label>Company</Label><Input value={exp.company} onChange={(e) => handleExperienceChange(index, "company", e.target.value)} /></div>
-                    <div><Label>Location</Label><Input value={exp.location} onChange={(e) => handleExperienceChange(index, "location", e.target.value)} /></div>
-                    <div><Label>Start Date</Label><Input value={exp.startDate} onChange={(e) => handleExperienceChange(index, "startDate", e.target.value)} /></div>
-                    <div><Label>End Date</Label><Input value={exp.endDate} onChange={(e) => handleExperienceChange(index, "endDate", e.target.value)} /></div>
-                  </div>
-                  <div className="relative">
-                    <Label>Description</Label>
-                    <Textarea value={exp.description} onChange={(e) => handleExperienceChange(index, "description", e.target.value)} rows={3} placeholder="- Key achievement 1..." className="pr-10"/>
-                     <div className="absolute bottom-1.5 right-1.5 flex flex-col gap-1">
-                        {SpeechRecognition && (
-                             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening(`experience-${index}`)}>
-                                {isListening === `experience-${index}` ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
-                            </Button>
-                        )}
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeExperience(index)}><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              ))}
-              <Button variant="outline" onClick={addExperience} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Experience</Button>
-            </AccordionContent>
-          </AccordionItem>
-
-         
-
-         
-
-          
-          <AccordionItem value="certifications">
-            <AccordionTrigger className="text-lg font-semibold"><Ribbon className="mr-3 h-5 w-5 text-primary accordion-icon"/>Certifications & Training (optional)</AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-2">
-              {resumeData.certifications?.map((cert, index) => (
-                <div key={cert.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><Label>Certification Name</Label><Input value={cert.name} onChange={(e) => handleCertificationChange(index, "name", e.target.value)} /></div>
-                    <div><Label>Issuing Authority</Label><Input value={cert.authority} onChange={(e) => handleCertificationChange(index, "authority", e.target.value)} /></div>
-                    <div><Label>Date Earned</Label><Input value={cert.date} onChange={(e) => handleCertificationChange(index, "date", e.target.value)} /></div>
-                    <div><Label>URL (optional)</Label><Input value={cert.link || ''} onChange={(e) => handleCertificationChange(index, "link", e.target.value)} placeholder="https://example.com/cert" /></div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeCertification(index)}><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              ))}
-              <Button variant="outline" onClick={addCertification} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Certification</Button>
-            </AccordionContent>
-          </AccordionItem>
-          
-          <AccordionItem value="awards">
-            <AccordionTrigger className="text-lg font-semibold"><Award className="mr-3 h-5 w-5 text-primary accordion-icon"/>Awards & Achievements (optional)</AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-2">
-              {resumeData.awards?.map((award, index) => (
-                <div key={award.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-1"><Label>Award/Achievement</Label><Input value={award.name} onChange={(e) => handleAwardChange(index, "name", e.target.value)} /></div>
-                    <div className="md:col-span-1"><Label>URL (optional)</Label><Input value={award.link || ''} onChange={(e) => handleAwardChange(index, "link", e.target.value)} placeholder="https://example.com/award" /></div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeAward(index)}><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              ))}
-              <Button variant="outline" onClick={addAward} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Award</Button>
-            </AccordionContent>
-          </AccordionItem>
-          
-          <AccordionItem value="volunteer">
-            <AccordionTrigger className="text-lg font-semibold"><Handshake className="mr-3 h-5 w-5 text-primary accordion-icon"/>Volunteer Experience (optional)</AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-2">
-              {resumeData.volunteerExperience?.map((vol, index) => (
-                <div key={vol.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><Label>Role</Label><Input value={vol.role} onChange={(e) => handleVolunteerChange(index, "role", e.target.value)} /></div>
-                    <div><Label>Organization</Label><Input value={vol.organization} onChange={(e) => handleVolunteerChange(index, "organization", e.target.value)} /></div>
-                     <div><Label>Dates</Label><Input value={vol.dates} onChange={(e) => handleVolunteerChange(index, "dates", e.target.value)} /></div>
-                  </div>
-                  <div className="relative">
-                    <Label>Description</Label>
-                    <Textarea value={vol.description} onChange={(e) => handleVolunteerChange(index, "description", e.target.value)} rows={3} placeholder="Skills demonstrated or impact created..." className="pr-10" />
-                    <div className="absolute bottom-1.5 right-1.5 flex flex-col gap-1">
-                        {SpeechRecognition && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening(`volunteer-${index}`)}>
-                                {isListening === `volunteer-${index}` ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
-                            </Button>
-                        )}
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeVolunteer(index)}><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              ))}
-              <Button variant="outline" onClick={addVolunteer} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Volunteer Role</Button>
-            </AccordionContent>
-          </AccordionItem>
-          
-          <AccordionItem value="languages">
-            <AccordionTrigger className="text-lg font-semibold"><Languages className="mr-3 h-5 w-5 text-primary accordion-icon"/>Languages (optional)</AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-2">
-              {resumeData.languages?.map((lang, index) => (
-                <div key={lang.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50 transition-colors hover:border-primary/50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><Label>Language</Label><Input value={lang.name} onChange={(e) => handleLanguageChange(index, "name", e.target.value)} /></div>
-                    <div><Label>Proficiency</Label><Input value={lang.proficiency} onChange={(e) => handleLanguageChange(index, "proficiency", e.target.value)} /></div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground transition-colors hover:text-destructive" onClick={() => removeLanguage(index)}><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              ))}
-              <Button variant="outline" onClick={addLanguage} className="transition-transform hover:scale-105"><PlusCircle className="mr-2"/>Add Language</Button>
-            </AccordionContent>
-          </AccordionItem>
-          
-          <AccordionItem value="ats-score">
-            <AccordionTrigger className="text-lg font-semibold"><BrainCircuit className="mr-3 h-5 w-5 text-primary accordion-icon"/>ATS Score Analysis</AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-2">
-              <div className="relative">
-                <Label htmlFor="job-description">Job Description</Label>
-                <Textarea id="job-description" value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} placeholder="Paste the job description here..." rows={6} className="pr-10"/>
-                 {SpeechRecognition && (
-                    <Button variant="ghost" size="icon" className="absolute bottom-2 right-2 text-muted-foreground transition-colors hover:text-primary" onClick={() => toggleListening('jobDescription')}>
-                        {isListening === 'jobDescription' ? <Mic className={cn("h-4 w-4 text-primary animate-pulse-mic")} /> : <Mic className="h-4 w-4" />}
-                    </Button>
-                )}
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button onClick={handleScore} disabled={isLoading || !jobDescription} className="w-full bg-[hsl(var(--accent))] text-accent-foreground hover:bg-[hsl(var(--accent)/0.9)] transition-transform hover:scale-105 active:scale-100">
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isLoading ? "Analyzing..." : "Analyze and Score Built Resume"}
-                </Button>
-              </div>
-
-              {isLoading && <p className="text-center text-sm text-muted-foreground">Analyzing your resume. This may take a moment...</p>}
-              {atsResult && <AtsScoreDisplay result={atsResult} />}
-            </AccordionContent>
-          </AccordionItem>
+          <DraggableResumeBuilder 
+            sections={draggableSections}
+            onSectionsReorder={handleSectionsReorder}
+          />
         </Accordion>
       </CardContent>
     </Card>

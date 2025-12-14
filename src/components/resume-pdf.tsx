@@ -94,7 +94,28 @@ export function ResumePDF({ resume, sectionOrder }: ResumePDFProps) {
     'languages',
   ];
 
-  const order = sectionOrder || defaultOrder;
+  // Map kebab-case section names to camelCase
+  const sectionNameMap: Record<string, string> = {
+    'personal-info': 'personalInfo',
+    'summary': 'summary',
+    'skills': 'skills',
+    'education': 'education',
+    'experience': 'experience',
+    'projects': 'projects',
+    'certifications': 'certifications',
+    'awards': 'awards',
+    'volunteer': 'volunteerExperience',
+    'languages': 'languages',
+    'ats-score': '', // Skip this in PDF
+    'job-description': '', // Skip this in PDF
+  };
+
+  // Convert the sectionOrder from kebab-case to camelCase and filter out non-PDF sections
+  const mappedOrder = sectionOrder 
+    ? sectionOrder.map(section => sectionNameMap[section] || '').filter(s => s !== '')
+    : defaultOrder;
+
+  const order = mappedOrder.length > 0 ? mappedOrder : defaultOrder;
 
   const renderSection = (sectionType: string) => {
     switch (sectionType) {

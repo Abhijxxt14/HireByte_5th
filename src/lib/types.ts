@@ -74,6 +74,7 @@ export interface Resume {
   awards: Award[];
   volunteerExperience: VolunteerExperience[];
   languages: Language[];
+  sectionOrder?: string[];
 }
 
 export interface ResumeTextSections {
