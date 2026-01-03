@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
+import { memo } from 'react';
 import type { Resume } from '@/lib/types';
 
 // Register fonts if needed
@@ -80,7 +81,7 @@ interface ResumePDFProps {
   sectionOrder?: string[];
 }
 
-export function ResumePDF({ resume, sectionOrder }: ResumePDFProps) {
+export const ResumePDF = memo(function ResumePDF({ resume, sectionOrder }: ResumePDFProps) {
   const defaultOrder = [
     'personalInfo',
     'summary',
@@ -270,4 +271,4 @@ export function ResumePDF({ resume, sectionOrder }: ResumePDFProps) {
       </Page>
     </Document>
   );
-}
+});
