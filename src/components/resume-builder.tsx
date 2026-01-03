@@ -117,48 +117,51 @@ export function ResumeBuilder({
     const [fieldName, indexStr] = field.split('-');
     const index = indexStr ? parseInt(indexStr, 10) : -1;
 
-    const newResumeData = { ...resumeData };
-    switch (fieldName) {
-    case 'summary':
-        newResumeData.summary = newText;
-        break;
+    if (fieldName === 'jobDescription') {
+      // This case doesn't modify resumeData, handled separately
+      setJobDescription(newText);
+      return;
+    }
 
-    case 'skills':
-        setSkillsInputValue(newText);
-        // Also update the resume data with processed skills
-        newResumeData.skills = newText.split(",").map(s => s.trim()).filter(s => s.length > 0);
-        break;
-        case 'project':
-          if (index !== -1 && newResumeData.projects) {
-          const newProjects = [...newResumeData.projects];
-          newProjects[index] = { ...newProjects[index], description: newText };
-          newResumeData.projects = newProjects;
-          }
+    setResumeData(prevData => {
+      const newResumeData = { ...prevData };
+      switch (fieldName) {
+      case 'summary':
+          newResumeData.summary = newText;
           break;
 
-    case 'experience':
-        if (index !== -1) {
-        const newExperience = [...newResumeData.experience];
-        newExperience[index] = { ...newExperience[index], description: newText };
-        newResumeData.experience = newExperience;
-        }
-        break;
-    
-    case 'volunteer':
-        if (index !== -1 && newResumeData.volunteerExperience) {
-        const newVolunteer = [...newResumeData.volunteerExperience];
-        newVolunteer[index] = { ...newVolunteer[index], description: newText };
-        newResumeData.volunteerExperience = newVolunteer;
-        }
-        break;
-    
-    case 'jobDescription':
-        // This case doesn't modify resumeData, handled separately
-        setJobDescription(newText);
-        return;
-    }
-    setResumeData(newResumeData);
-  }, [resumeData, setResumeData, setJobDescription]);
+      case 'skills':
+          setSkillsInputValue(newText);
+          // Also update the resume data with processed skills
+          newResumeData.skills = newText.split(",").map(s => s.trim()).filter(s => s.length > 0);
+          break;
+          case 'project':
+            if (index !== -1 && newResumeData.projects) {
+            const newProjects = [...newResumeData.projects];
+            newProjects[index] = { ...newProjects[index], description: newText };
+            newResumeData.projects = newProjects;
+            }
+            break;
+
+      case 'experience':
+          if (index !== -1) {
+          const newExperience = [...newResumeData.experience];
+          newExperience[index] = { ...newExperience[index], description: newText };
+          newResumeData.experience = newExperience;
+          }
+          break;
+      
+      case 'volunteer':
+          if (index !== -1 && newResumeData.volunteerExperience) {
+          const newVolunteer = [...newResumeData.volunteerExperience];
+          newVolunteer[index] = { ...newVolunteer[index], description: newText };
+          newResumeData.volunteerExperience = newVolunteer;
+          }
+          break;
+      }
+      return newResumeData;
+    });
+  }, [setResumeData, setJobDescription]);
 
   const requestMicPermission = async () => {
     try {
@@ -287,25 +290,27 @@ export function ResumeBuilder({
   }, [isListening, getFieldValue, toast, updateField]);
   
 
-  const handlePersonalInfoChange = (field: string, value: string) => {
-    setResumeData({ ...resumeData, personalInfo: { ...resumeData.personalInfo, [field]: value } });
-  };
+  const handlePersonalInfoChange = useCallback((field: string, value: string) => {
+    setResumeData(prevData => ({ ...prevData, personalInfo: { ...prevData.personalInfo, [field]: value } }));
+  }, [setResumeData]);
   
-  const handleSummaryChange = (value: string) => {
-    setResumeData({ ...resumeData, summary: value });
-  };
+  const handleSummaryChange = useCallback((value: string) => {
+    setResumeData(prevData => ({ ...prevData, summary: value }));
+  }, [setResumeData]);
 
-  const handleExperienceChange = (index: number, field: string, value: string) => {
-    const newExperience = [...resumeData.experience];
-    newExperience[index] = { ...newExperience[index], [field]: value };
-    setResumeData({ ...resumeData, experience: newExperience });
-  };
+  const handleExperienceChange = useCallback((index: number, field: string, value: string) => {
+    setResumeData(prevData => {
+      const newExperience = [...prevData.experience];
+      newExperience[index] = { ...newExperience[index], [field]: value };
+      return { ...prevData, experience: newExperience };
+    });
+  }, [setResumeData]);
 
-  const addExperience = () => {
-    setResumeData({
-      ...resumeData,
+  const addExperience = useCallback(() => {
+    setResumeData(prevData => ({
+      ...prevData,
       experience: [
-        ...(resumeData.experience || []),
+        ...(prevData.experience || []),
         {
           id: crypto.randomUUID(),
           jobTitle: "",
@@ -316,157 +321,183 @@ export function ResumeBuilder({
           description: "",
         },
       ],
+    }));
+  }, [setResumeData]);
+
+  const removeExperience = useCallback((index: number) => {
+    setResumeData(prevData => {
+      const newExperience = prevData.experience.filter((_, i) => i !== index);
+      return { ...prevData, experience: newExperience };
     });
-  };
+  }, [setResumeData]);
 
-  const removeExperience = (index: number) => {
-    const newExperience = resumeData.experience.filter((_, i) => i !== index);
-    setResumeData({ ...resumeData, experience: newExperience });
-  };
+  const handleEducationChange = useCallback((index: number, field: string, value: string) => {
+    setResumeData(prevData => {
+      const newEducation = [...prevData.education];
+      newEducation[index] = { ...newEducation[index], [field]: value };
+      return { ...prevData, education: newEducation };
+    });
+  }, [setResumeData]);
 
-  const handleEducationChange = (index: number, field: string, value: string) => {
-    const newEducation = [...resumeData.education];
-    newEducation[index] = { ...newEducation[index], [field]: value };
-    setResumeData({ ...resumeData, education: newEducation });
-  };
-
-  const addEducation = () => {
-    setResumeData({
-      ...resumeData,
+  const addEducation = useCallback(() => {
+    setResumeData(prevData => ({
+      ...prevData,
       education: [
-        ...(resumeData.education || []),
+        ...(prevData.education || []),
         { id: crypto.randomUUID(), school: "", degree: "", location: "", graduationDate: "", grade: "" },
       ],
+    }));
+  }, [setResumeData]);
+
+  const removeEducation = useCallback((index: number) => {
+    setResumeData(prevData => {
+      const newEducation = prevData.education.filter((_, i) => i !== index);
+      return { ...prevData, education: newEducation };
     });
-  };
+  }, [setResumeData]);
 
-  const removeEducation = (index: number) => {
-    const newEducation = resumeData.education.filter((_, i) => i !== index);
-    setResumeData({ ...resumeData, education: newEducation });
-  };
-
-  const handleSkillsChange = (value: string) => {
+  const handleSkillsChange = useCallback((value: string) => {
     // Update the input value state for immediate UI feedback
     setSkillsInputValue(value);
-  };
+  }, [setSkillsInputValue]);
 
-  const handleSkillsBlur = (value: string) => {
+  const handleSkillsBlur = useCallback((value: string) => {
     // Process skills only on blur to avoid interfering with typing
     const skillsArray = value.split(",").map((s) => s.trim()).filter(s => s.length > 0);
-    setResumeData({ ...resumeData, skills: skillsArray });
-  };
+    setResumeData(prevData => ({ ...prevData, skills: skillsArray }));
+  }, [setResumeData]);
 
-  const handleSkillsKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleSkillsKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSkillsBlur(skillsInputValue);
     }
-  };
+  }, [handleSkillsBlur, skillsInputValue]);
   
-  const handleProjectChange = (index: number, field: string, value: string) => {
-    const newProjects = [...(resumeData.projects || [])];
-    newProjects[index] = { ...newProjects[index], [field]: value };
-    setResumeData({ ...resumeData, projects: newProjects });
-  };
+  const handleProjectChange = useCallback((index: number, field: string, value: string) => {
+    setResumeData(prevData => {
+      const newProjects = [...(prevData.projects || [])];
+      newProjects[index] = { ...newProjects[index], [field]: value };
+      return { ...prevData, projects: newProjects };
+    });
+  }, [setResumeData]);
 
-  const addProject = () => {
-    setResumeData({
-      ...resumeData,
+  const addProject = useCallback(() => {
+    setResumeData(prevData => ({
+      ...prevData,
       projects: [
-        ...(resumeData.projects || []),
+        ...(prevData.projects || []),
         { id: crypto.randomUUID(), name: "", description: "", link: "" },
       ],
+    }));
+  }, [setResumeData]);
+
+  const removeProject = useCallback((index: number) => {
+    setResumeData(prevData => {
+      const newProjects = (prevData.projects || []).filter((_, i) => i !== index);
+      return { ...prevData, projects: newProjects };
     });
-  };
-
-  const removeProject = (index: number) => {
-    const newProjects = (resumeData.projects || []).filter((_, i) => i !== index);
-    setResumeData({ ...resumeData, projects: newProjects });
-  };
+  }, [setResumeData]);
   
-  const handleCertificationChange = (index: number, field: string, value: string) => {
-    const newCerts = [...(resumeData.certifications || [])];
-    newCerts[index] = { ...newCerts[index], [field]: value };
-    setResumeData({ ...resumeData, certifications: newCerts });
-  };
+  const handleCertificationChange = useCallback((index: number, field: string, value: string) => {
+    setResumeData(prevData => {
+      const newCerts = [...(prevData.certifications || [])];
+      newCerts[index] = { ...newCerts[index], [field]: value };
+      return { ...prevData, certifications: newCerts };
+    });
+  }, [setResumeData]);
 
-  const addCertification = () => {
-    setResumeData({
-      ...resumeData,
+  const addCertification = useCallback(() => {
+    setResumeData(prevData => ({
+      ...prevData,
       certifications: [
-        ...(resumeData.certifications || []),
+        ...(prevData.certifications || []),
         { id: crypto.randomUUID(), name: "", authority: "", date: "", link: "" },
       ],
-    });
-  };
+    }));
+  }, [setResumeData]);
   
-  const removeCertification = (index: number) => {
-    const newCerts = (resumeData.certifications || []).filter((_, i) => i !== index);
-    setResumeData({ ...resumeData, certifications: newCerts });
-  };
+  const removeCertification = useCallback((index: number) => {
+    setResumeData(prevData => {
+      const newCerts = (prevData.certifications || []).filter((_, i) => i !== index);
+      return { ...prevData, certifications: newCerts };
+    });
+  }, [setResumeData]);
 
-  const handleAwardChange = (index: number, field: string, value: string) => {
-    const newAwards = [...(resumeData.awards || [])];
-    newAwards[index] = { ...newAwards[index], [field]: value };
-    setResumeData({ ...resumeData, awards: newAwards });
-  };
+  const handleAwardChange = useCallback((index: number, field: string, value: string) => {
+    setResumeData(prevData => {
+      const newAwards = [...(prevData.awards || [])];
+      newAwards[index] = { ...newAwards[index], [field]: value };
+      return { ...prevData, awards: newAwards };
+    });
+  }, [setResumeData]);
 
-  const addAward = () => {
-    setResumeData({
-      ...resumeData,
+  const addAward = useCallback(() => {
+    setResumeData(prevData => ({
+      ...prevData,
       awards: [
-        ...(resumeData.awards || []),
+        ...(prevData.awards || []),
         { id: crypto.randomUUID(), name: "", link: "" },
       ],
+    }));
+  }, [setResumeData]);
+  
+  const removeAward = useCallback((index: number) => {
+    setResumeData(prevData => {
+      const newAwards = (prevData.awards || []).filter((_, i) => i !== index);
+      return { ...prevData, awards: newAwards };
     });
-  };
+  }, [setResumeData]);
   
-  const removeAward = (index: number) => {
-    const newAwards = (resumeData.awards || []).filter((_, i) => i !== index);
-    setResumeData({ ...resumeData, awards: newAwards });
-  };
+  const handleVolunteerChange = useCallback((index: number, field: string, value: string) => {
+    setResumeData(prevData => {
+      const newVol = [...(prevData.volunteerExperience || [])];
+      newVol[index] = { ...newVol[index], [field]: value };
+      return { ...prevData, volunteerExperience: newVol };
+    });
+  }, [setResumeData]);
   
-  const handleVolunteerChange = (index: number, field: string, value: string) => {
-    const newVol = [...(resumeData.volunteerExperience || [])];
-    newVol[index] = { ...newVol[index], [field]: value };
-    setResumeData({ ...resumeData, volunteerExperience: newVol });
-  };
-  
-  const addVolunteer = () => {
-    setResumeData({
-      ...resumeData,
+  const addVolunteer = useCallback(() => {
+    setResumeData(prevData => ({
+      ...prevData,
       volunteerExperience: [
-        ...(resumeData.volunteerExperience || []),
+        ...(prevData.volunteerExperience || []),
         { id: crypto.randomUUID(), role: "", organization: "", dates: "", description: "" },
       ],
+    }));
+  }, [setResumeData]);
+  
+  const removeVolunteer = useCallback((index: number) => {
+    setResumeData(prevData => {
+      const newVol = (prevData.volunteerExperience || []).filter((_, i) => i !== index);
+      return { ...prevData, volunteerExperience: newVol };
     });
-  };
+  }, [setResumeData]);
   
-  const removeVolunteer = (index: number) => {
-    const newVol = (resumeData.volunteerExperience || []).filter((_, i) => i !== index);
-    setResumeData({ ...resumeData, volunteerExperience: newVol });
-  };
+  const handleLanguageChange = useCallback((index: number, field: string, value: string) => {
+    setResumeData(prevData => {
+      const newLang = [...(prevData.languages || [])];
+      newLang[index] = { ...newLang[index], [field]: value };
+      return { ...prevData, languages: newLang };
+    });
+  }, [setResumeData]);
   
-  const handleLanguageChange = (index: number, field: string, value: string) => {
-    const newLang = [...(resumeData.languages || [])];
-    newLang[index] = { ...newLang[index], [field]: value };
-    setResumeData({ ...resumeData, languages: newLang });
-  };
-  
-  const addLanguage = () => {
-    setResumeData({
-      ...resumeData,
+  const addLanguage = useCallback(() => {
+    setResumeData(prevData => ({
+      ...prevData,
       languages: [
-        ...(resumeData.languages || []),
+        ...(prevData.languages || []),
         { id: crypto.randomUUID(), name: "", proficiency: "" },
       ],
-    });
-  };
+    }));
+  }, [setResumeData]);
   
-  const removeLanguage = (index: number) => {
-    const newLang = (resumeData.languages || []).filter((_, i) => i !== index);
-    setResumeData({ ...resumeData, languages: newLang });
-  };
+  const removeLanguage = useCallback((index: number) => {
+    setResumeData(prevData => {
+      const newLang = (prevData.languages || []).filter((_, i) => i !== index);
+      return { ...prevData, languages: newLang };
+    });
+  }, [setResumeData]);
 
   // Default section order if not provided
   const defaultSectionOrder = [
@@ -491,9 +522,9 @@ export function ResumeBuilder({
     if (setSectionOrder) {
       setSectionOrder(newOrder);
     }
-    // Also update the resume data
-    setResumeData({ ...resumeData, sectionOrder: newOrder });
-  }, [setSectionOrder, setResumeData, resumeData]);
+    // Also update the resume data using functional form to avoid stale closures
+    setResumeData(prevData => ({ ...prevData, sectionOrder: newOrder }));
+  }, [setSectionOrder, setResumeData]);
 
   // Create section components mapping
   const sectionComponents: Record<string, React.ReactNode> = useMemo(() => ({
@@ -741,7 +772,7 @@ export function ResumeBuilder({
         </AccordionContent>
       </AccordionItem>
     ),
-  }), [resumeData, skillsInputValue, jobDescription, isListening, isLoading, atsResult, SpeechRecognition]);
+  }), [skillsInputValue, jobDescription, isListening, isLoading, atsResult, SpeechRecognition, handlePersonalInfoChange, handleSummaryChange, handleEducationChange, handleExperienceChange, handleSkillsChange, handleSkillsBlur, handleSkillsKeyDown, handleProjectChange, handleCertificationChange, handleAwardChange, handleVolunteerChange, handleLanguageChange, addEducation, removeEducation, addExperience, removeExperience, addProject, removeProject, addCertification, removeCertification, addAward, removeAward, addVolunteer, removeVolunteer, addLanguage, removeLanguage, toggleListening, handleScore, setJobDescription, resumeData.personalInfo, resumeData.summary, resumeData.education, resumeData.experience, resumeData.projects, resumeData.certifications, resumeData.awards, resumeData.volunteerExperience, resumeData.languages]);
 
   // Create draggable sections based on current order
   const draggableSections: DraggableResumeSection[] = useMemo(() => {
