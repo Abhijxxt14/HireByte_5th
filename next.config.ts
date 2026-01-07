@@ -19,6 +19,19 @@ const nextConfig: NextConfig = {
   // Turbopack configuration (empty to silence warning)
   turbopack: {},
   
+  // Mark @react-pdf/renderer as external for webpack
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = [...(config.externals || []), '@react-pdf/renderer'];
+    }
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+      encoding: false,
+    };
+    return config;
+  },
+  
   // Image optimization for better SEO and performance
   images: {
     formats: ['image/webp', 'image/avif'],

@@ -1,3 +1,5 @@
+"use client";
+
 import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
 import { memo } from 'react';
 import type { Resume } from '@/lib/types';

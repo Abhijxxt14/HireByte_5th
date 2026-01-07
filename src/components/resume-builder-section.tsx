@@ -1,15 +1,21 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import type { Resume, AtsScoreResumeOutput } from '@/lib/types';
 import { useIntersectionObserver } from '@/hooks/use-intersection-observer';
 import { ResumeBuilder } from '@/components/resume-builder';
-import { ResumePreview } from '@/components/resume-preview';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, ArrowLeft } from 'lucide-react';
 import { Footer } from '@/components/footer';
 import { Button } from '@/components/ui/button';
 import { initialResumeData } from '@/lib/resume-template';
+
+// Dynamically import ResumePreview to avoid SSR issues with @react-pdf/renderer
+const ResumePreview = dynamic(() => import('@/components/resume-preview').then(mod => ({ default: mod.ResumePreview })), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center min-h-[600px]">Loading preview...</div>
+});
 
 const RESUME_STORAGE_KEY = 'firebase-studio-resume-data';
 
